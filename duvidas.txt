@@ -1,0 +1,6 @@
+1 - Serviço de enfermagem também é uma entidade fraca? (pouca informação no enunciado)
+2 - Serviço de enfermagem tem de ter paciente associado?
+3 - Serviço de enfermagem pode ser realizado por quantos enfermeiros?
+4 - A parte da consulta está bem feita?
+5 - Receita tem de estar associada ao médico?
+6 - Atributo 'Quantidade' da relação entre receita e medicamento está bem?
