@@ -4,3 +4,10 @@
 4 - A parte da consulta está bem feita?
 5 - Receita tem de estar associada ao médico?
 6 - Atributo 'Quantidade' da relação entre receita e medicamento está bem?
+
+-- Dúvidas Parte 3 --
+
+1 - No exercicio 1, é preciso devolver SSN, name ou os dois?
+2 - No exercicio 1, join pode ser natural join?
+3 - No exercicio 2, frase esta bem escrita?
+4 - No exercicio 3, o que significa a função 'DATE'?
