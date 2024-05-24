@@ -701,6 +701,7 @@ DECLARE
     dow INT;
     existing_consultation_count INT;
     existing_consultation_hour INT;
+    consultation_scheduled BOOLEAN;
 BEGIN
     -- Initialize counters
     consultation_count := 0;
@@ -709,46 +710,54 @@ BEGIN
 
     -- Loop through each patient
     FOR patient IN (SELECT ssn, nif FROM paciente) LOOP
-        -- Generate a random consultation date
-        consultation_date := DATE '2023-01-01' + (RANDOM() * 730)::INT; -- Random date in 2023-2024
-        dow := EXTRACT(ISODOW FROM consultation_date); -- Day of the week (1=Monday, 7=Sunday)
+        -- Initialize variable to check if consultation is scheduled
+        consultation_scheduled := FALSE;
 
-        -- Generate a random time within the allowed hours
-        IF RANDOM() < 0.5 THEN
-            consultation_time := MAKE_TIME(8 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 8:00 and 13:00
-        ELSE
-            consultation_time := MAKE_TIME(14 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 14:00 and 19:00
-        END IF;
+        -- Loop until a consultation is successfully scheduled
+        WHILE NOT consultation_scheduled LOOP
+            -- Generate a random consultation date
+            consultation_date := DATE '2023-01-01' + (RANDOM() * 730)::INT; -- Random date in 2023-2024
+            dow := EXTRACT(ISODOW FROM consultation_date)-1; -- Day of the week (1=Monday, 7=Sunday)
 
-        -- Select a random doctor who is not the patient and works in a clinic on the given day
-        FOR doctor IN (
-            SELECT m.nif, t.nome
-            FROM medico m
-            JOIN trabalha t ON m.nif = t.nif
-            WHERE m.nif != patient.nif AND t.dia_da_semana = dow
-            ORDER BY RANDOM()
-            LIMIT 1
-        ) LOOP
-            -- Check if the doctor already has a consultation at the same time on the same day
-            SELECT COUNT(*) INTO existing_consultation_count
-            FROM consulta
-            WHERE nif = doctor.nif AND data = consultation_date AND hora = consultation_time;
-
-            IF existing_consultation_count = 0 THEN
-                -- Insert the consultation
-                INSERT INTO consulta (ssn, nif, nome, data, hora)
-                VALUES (patient.ssn, doctor.nif, doctor.nome, consultation_date, consultation_time);
-
-                -- Increment the consultation count
-                consultation_count := consultation_count + 1;
-
-                -- Ensure each doctor has at least 2 consultations
-                IF consultation_count % 2 = 0 THEN
-                    doctor_count := doctor_count + 1;
-                END IF;
-
-                EXIT; -- Exit the loop after inserting one consultation for the patient
+            -- Generate a random time within the allowed hours
+            IF RANDOM() < 0.5 THEN
+                consultation_time := MAKE_TIME(8 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 8:00 and 13:00
+            ELSE
+                consultation_time := MAKE_TIME(14 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 14:00 and 19:00
             END IF;
+
+            -- Select a random doctor who is not the patient and works in a clinic on the given day
+            FOR doctor IN (
+                SELECT m.nif, t.nome
+                FROM medico m
+                JOIN trabalha t ON m.nif = t.nif
+                WHERE m.nif != patient.nif AND t.dia_da_semana = dow
+                ORDER BY RANDOM()
+                LIMIT 1
+            ) LOOP
+                -- Check if the doctor already has a consultation at the same time on the same day
+                SELECT COUNT(*) INTO existing_consultation_count
+                FROM consulta
+                WHERE (nif = doctor.nif OR ssn = patient.ssn) AND data = consultation_date AND hora = consultation_time;
+
+                IF existing_consultation_count = 0 THEN
+                    -- Insert the consultation
+                    INSERT INTO consulta (ssn, nif, nome, data, hora)
+                    VALUES (patient.ssn, doctor.nif, doctor.nome, consultation_date, consultation_time);
+
+                    -- Increment the consultation count
+                    consultation_count := consultation_count + 1;
+
+                    -- Ensure each doctor has at least 2 consultations
+                    IF consultation_count % 2 = 0 THEN
+                        doctor_count := doctor_count + 1;
+                    END IF;
+
+                    -- Mark the consultation as scheduled
+                    consultation_scheduled := TRUE;
+                    EXIT; -- Exit the loop after inserting one consultation for the patient
+                END IF;
+            END LOOP;
         END LOOP;
     END LOOP;
 
@@ -757,7 +766,7 @@ BEGIN
         FOR i IN 1..2 LOOP
             -- Generate a random consultation date
             consultation_date := DATE '2023-01-01' + (RANDOM() * 730)::INT; -- Random date in 2023-2024
-            dow := EXTRACT(ISODOW FROM consultation_date); -- Day of the week (1=Monday, 7=Sunday)
+            dow := EXTRACT(ISODOW FROM consultation_date)-1; -- Day of the week (1=Monday, 7=Sunday)
 
             -- Generate a random time within the allowed hours
             IF RANDOM() < 0.5 THEN
@@ -784,7 +793,7 @@ BEGIN
                     -- Check if the doctor already has a consultation at the same time on the same day
                     SELECT COUNT(*) INTO existing_consultation_count
                     FROM consulta
-                    WHERE nif = doctor.nif AND data = consultation_date AND hora = consultation_time;
+                    WHERE (nif = doctor.nif OR ssn = patient.ssn) AND data = consultation_date AND hora = consultation_time;
 
                     IF existing_consultation_count = 0 THEN
                         -- Insert the consultation
@@ -806,6 +815,69 @@ BEGIN
             END LOOP;
         END LOOP;
     END LOOP;
+     -- Loop through each clinic
+    FOR clinic IN (SELECT nome FROM clinica) LOOP
+        -- Loop through each day of the year
+        FOR consultation_date IN (
+            SELECT generate_series(DATE '2023-01-01', DATE '2024-12-31', INTERVAL '1 day')::DATE
+        ) LOOP
+            dow := EXTRACT(ISODOW FROM consultation_date)-1;
+            -- Reset daily consultation count for each clinic
+            clinic_count := 0;
 
-    
+            -- Count existing consultations for the clinic on the current day
+            SELECT COUNT(*) INTO clinic_count
+            FROM consulta
+            WHERE nome = clinic.nome AND data = consultation_date;
+
+            -- Loop until 20 consultations are scheduled for the current day
+            WHILE clinic_count < 20 LOOP
+
+                -- Loop through each time slot in the day (8:00-13:00 and 14:00-19:00 in 30 minute intervals)
+                FOR hour IN 8..19 LOOP
+                    FOR minute IN 0..30 BY 30 LOOP
+                        consultation_time := MAKE_TIME(hour, minute, 0);
+
+                        -- Select a random patient
+                        FOR patient IN (
+                            SELECT ssn
+                            FROM paciente
+                            ORDER BY RANDOM()
+                            LIMIT 1
+                        ) LOOP
+                            FOR doctor IN (
+                                SELECT m.nif, t.nome
+                                FROM medico m
+                                JOIN trabalha t ON m.nif = t.nif
+                                WHERE t.nome = clinic.nome AND t.dia_da_semana = dow
+                                ORDER BY RANDOM()
+                                LIMIT 1
+                            ) LOOP
+                                -- Check if the doctor already has a consultation at the same time on the same day
+                                SELECT COUNT(*) INTO existing_consultation_count
+                                FROM consulta
+                                WHERE (nif = doctor.nif OR ssn = patient.ssn) AND data = consultation_date AND hora = consultation_time;
+                                
+
+                                IF existing_consultation_count = 0 THEN
+                                    -- Insert the consultation
+                                    INSERT INTO consulta (ssn, nif, nome, data, hora)
+                                    VALUES (patient.ssn, doctor.nif, clinic.nome, consultation_date, consultation_time);
+
+                                    -- Increment the consultation count
+                                    clinic_count := clinic_count + 1;
+
+                                    EXIT; -- Exit the loop after inserting one consultation for the clinic
+                                END IF;
+                            END LOOP;
+                            EXIT WHEN clinic_count >= 20; -- Exit the loop after scheduling 20 consultations
+                        END LOOP;
+                        EXIT WHEN clinic_count >= 20; -- Exit the loop after scheduling 20 consultations
+                    END LOOP;
+                    EXIT WHEN clinic_count >= 20; -- Exit the loop after scheduling 20 consultations
+                END LOOP;        
+            END LOOP;
+        END LOOP;
+    END LOOP;
+
 END $$;
