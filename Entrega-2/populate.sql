@@ -726,7 +726,7 @@ END $$;
            WHILE NOT consultation_scheduled LOOP
                -- Generate a random consultation date
                consultation_date := DATE '2023-01-01' + (RANDOM() * 730)::INT; -- Random date in 2023-2024
-               dow := EXTRACT(ISODOW FROM consultation_date)-1; -- Day of the week (1=Monday, 7=Sunday)
+               dow := (EXTRACT(ISODOW FROM consultation_date) % 7); -- Day of the week (1=Monday, 7=Sunday)
 
                -- Generate a random time within the allowed hours
                IF RANDOM() < 0.5 THEN
@@ -778,7 +778,7 @@ END $$;
            FOR i IN 1..2 LOOP
                -- Generate a random consultation date
                consultation_date := DATE '2023-01-01' + (RANDOM() * 730)::INT; -- Random date in 2023-2024
-               dow := EXTRACT(ISODOW FROM consultation_date)-1; -- Day of the week (1=Monday, 7=Sunday)
+               dow := (EXTRACT(ISODOW FROM consultation_date) % 7); -- Day of the week (1=Monday, 7=Sunday)
 
                -- Generate a random time within the allowed hours
                IF RANDOM() < 0.5 THEN
@@ -837,7 +837,7 @@ END $$;
            FOR consultation_date IN (
                SELECT generate_series(DATE '2023-01-01', DATE '2024-12-31', INTERVAL '1 day')::DATE
            ) LOOP
-               dow := EXTRACT(ISODOW FROM consultation_date)-1;
+               dow := (EXTRACT(ISODOW FROM consultation_date) % 7);
                -- Reset daily consultation count for each clinic
                clinic_count := 0;
 
