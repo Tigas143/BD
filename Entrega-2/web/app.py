@@ -59,6 +59,32 @@ def is_decimal(s):
         return False
 
 
+def check_and_create_function(function_name):
+    """Check if the function exists in the database, and if not, create it."""
+    check_function_sql = f"""
+    SELECT EXISTS (
+        SELECT 1
+        FROM pg_proc
+        WHERE proname = '{function_name}'
+    );
+    """
+    
+    create_function_sql = ""
+    with open("functions.sql", "r") as file:
+        create_function_sql = file.read()
+    
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(check_function_sql)
+            function_exists = cur.fetchone().exists
+            if not function_exists:
+                log.info(f"Function {function_name} does not exist. Creating function.")
+                cur.execute(create_function_sql)
+                log.info(f"Function {function_name} created successfully.")
+            else:
+                log.info(f"Function {function_name} already exists.")
+
+
 @app.route("/", methods=("GET",))
 def clinica_index():
 
@@ -78,7 +104,63 @@ def clinica_index():
     return jsonify(clinicas), 200
 
 
-#Teste
+@app.route("/c/<nome_clinica>/", methods=("GET",))
+def especialidade_clinica(nome_clinica):
+    """Show all the especialidades offered by a certain clinica"""
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT m.especialidade
+                FROM medico m, trabalha t
+                WHERE m.nif = t.nif
+                AND t.nome = %s
+                """,
+                (nome_clinica,),
+            )
+            especialidades = cur.fetchall()
+            log.debug(f"Found {cur.rowcount} rows.")
+            
+    return jsonify(especialidades), 200
+    
+
+@app.route("/c/<nome_clinica>/<especialidade>/", methods=("GET",))
+def medicos_by_especialidade_by_clinica(nome_clinica, especialidade):
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            # Get the list of doctors for the specified clinic
+            cur.execute(
+                """
+                SELECT DISTINCT m.nome, m.nif
+                FROM medico m
+                JOIN trabalha t ON m.nif = t.nif
+                WHERE t.nome = %s AND m.especialidade = %s
+                """,
+                (nome_clinica, especialidade),
+            )
+            medicos = cur.fetchall()
+            log.debug(f"Found {cur.rowcount} rows.")
+            
+            # Initialize an empty list to hold the results
+            medicos_list = []
+            
+            # Get the next three consultation times for each doctor
+            for medico in medicos:
+                medico_nome, medico_nif = medico
+                cur.execute(
+                    """
+                    SELECT consulta_date, consulta_time
+                    FROM get_next_consultations(%s, %s)
+                    """,
+                    (medico_nif, nome_clinica)
+                )
+                consultations = cur.fetchall()
+                consultation_times = [[str(consulta_date), str(consulta_time)] for consulta_date, consulta_time in consultations]
+                
+                # Append the doctor and their next consultation times to the list
+                medicos_list.append([medico_nome, consultation_times])
+    
+    return jsonify(medicos_list), 200
 
 
 
@@ -90,4 +172,5 @@ def ping():
 
 
 if __name__ == "__main__":
+    chech_and_create_function("get_next_consultations")
     app.run()
