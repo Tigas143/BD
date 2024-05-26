@@ -711,12 +711,31 @@ END $$;
        existing_consultation_hour INT;
        consultation_scheduled BOOLEAN;
        codigo_sns CHAR(12);
+        hora1 TIME := '09:00:00'; -- Default time value
+        cardiologia_nif CHAR(9);
+        cardiologia_ssn CHAR(11);
+        clinic_name VARCHAR;
    BEGIN
        -- Initialize counters
        consultation_count := 0;
        doctor_count := 0;
        clinic_count := 0;
+        -- First, ensure at least one patient has a medication prescribed for more than 12 consecutive months
+            SELECT ssn INTO cardiologia_ssn FROM paciente ORDER BY RANDOM() LIMIT 1;
+            -- Select a random cardiologist
+            SELECT nif INTO cardiologia_nif FROM medico WHERE especialidade = 'Cardiologia' ORDER BY RANDOM() LIMIT 1;
+            
+            -- Select a random clinic associated with the cardiologist
+            SELECT nome INTO clinic_name FROM trabalha WHERE nif = cardiologia_nif ORDER BY RANDOM() LIMIT 1;
 
+            -- Ensure 12 consecutive months of medication
+            FOR i IN 0..11 LOOP
+                INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns)
+                VALUES (cardiologia_ssn, cardiologia_nif, clinic_name, DATE '2023-01-01' + (i * INTERVAL '1 month'), hora1, LPAD(nextval('consulta_codigo_sns_seq')::TEXT, 12, '0'));
+
+                INSERT INTO receita (codigo_sns, medicamento, quantidade)
+                VALUES (LPAD(currval('consulta_codigo_sns_seq')::TEXT, 12, '0'), 'Chronic Medication', random_between(1, 3));
+            END LOOP;
        -- Loop through each patient
        FOR patient IN (SELECT ssn, nif FROM paciente) LOOP
            -- Initialize variable to check if consultation is scheduled
@@ -726,7 +745,7 @@ END $$;
            WHILE NOT consultation_scheduled LOOP
                -- Generate a random consultation date
                consultation_date := DATE '2023-01-01' + (RANDOM() * 730)::INT; -- Random date in 2023-2024
-               dow := EXTRACT(ISODOW FROM consultation_date)-1; -- Day of the week (1=Monday, 7=Sunday)
+               dow := (EXTRACT(ISODOW FROM consultation_date) % 7); -- Day of the week (1=Monday, 7=Sunday)
 
                -- Generate a random time within the allowed hours
                IF RANDOM() < 0.5 THEN
@@ -778,7 +797,7 @@ END $$;
            FOR i IN 1..2 LOOP
                -- Generate a random consultation date
                consultation_date := DATE '2023-01-01' + (RANDOM() * 730)::INT; -- Random date in 2023-2024
-               dow := EXTRACT(ISODOW FROM consultation_date)-1; -- Day of the week (1=Monday, 7=Sunday)
+               dow := (EXTRACT(ISODOW FROM consultation_date) % 7); -- Day of the week (1=Monday, 7=Sunday)
 
                -- Generate a random time within the allowed hours
                IF RANDOM() < 0.5 THEN
@@ -837,7 +856,7 @@ END $$;
            FOR consultation_date IN (
                SELECT generate_series(DATE '2023-01-01', DATE '2024-12-31', INTERVAL '1 day')::DATE
            ) LOOP
-               dow := EXTRACT(ISODOW FROM consultation_date)-1;
+               dow := (EXTRACT(ISODOW FROM consultation_date) % 7);
                -- Reset daily consultation count for each clinic
                clinic_count := 0;
 
@@ -967,7 +986,10 @@ DECLARE
     existing_params RECORD;
     symptom_count INT;
     metric_count INT;
+    patient RECORD;
 BEGIN
+
+
     FOR consult IN SELECT id, codigo_sns FROM consulta LOOP
         consult_id := consult.id;
         has_prescription := (RANDOM() < 0.8);
