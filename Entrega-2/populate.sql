@@ -714,28 +714,46 @@ END $$;
         hora1 TIME := '09:00:00'; -- Default time value
         cardiologia_nif CHAR(9);
         cardiologia_ssn CHAR(11);
-        clinic_name VARCHAR;
+        clinic_name VARCHAR;  
+        working_day INT;
+        first_working_date DATE;
    BEGIN
        -- Initialize counters
        consultation_count := 0;
        doctor_count := 0;
        clinic_count := 0;
         -- First, ensure at least one patient has a medication prescribed for more than 12 consecutive months
-            SELECT ssn INTO cardiologia_ssn FROM paciente ORDER BY RANDOM() LIMIT 1;
-            -- Select a random cardiologist
-            SELECT nif INTO cardiologia_nif FROM medico WHERE especialidade = 'Cardiologia' ORDER BY RANDOM() LIMIT 1;
-            
-            -- Select a random clinic associated with the cardiologist
-            SELECT nome INTO clinic_name FROM trabalha WHERE nif = cardiologia_nif ORDER BY RANDOM() LIMIT 1;
+        SELECT ssn INTO cardiologia_ssn FROM paciente ORDER BY RANDOM() LIMIT 1;
+        -- Select a random cardiologist
+        SELECT nif INTO cardiologia_nif FROM medico WHERE especialidade = 'Cardiologia' ORDER BY RANDOM() LIMIT 1;
 
-            -- Ensure 12 consecutive months of medication
-            FOR i IN 0..11 LOOP
-                INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns)
-                VALUES (cardiologia_ssn, cardiologia_nif, clinic_name, DATE '2023-01-01' + (i * INTERVAL '1 month'), hora1, LPAD(nextval('consulta_codigo_sns_seq')::TEXT, 12, '0'));
+        -- Select a random clinic associated with the cardiologist
+        SELECT nome INTO clinic_name FROM trabalha WHERE nif = cardiologia_nif ORDER BY RANDOM() LIMIT 1;
 
-                INSERT INTO receita (codigo_sns, medicamento, quantidade)
-                VALUES (LPAD(currval('consulta_codigo_sns_seq')::TEXT, 12, '0'), 'Chronic Medication', random_between(1, 3));
+        -- Find a day of the week that the cardiologist works
+        SELECT dia_da_semana INTO working_day FROM trabalha WHERE nif = cardiologia_nif ORDER BY RANDOM() LIMIT 1;
+
+        -- Loop for 12 consecutive months
+        FOR i IN 0..11 LOOP
+            -- Initialize the date to the first day of the current month in the loop
+            consultation_date := DATE_TRUNC('month', DATE '2023-01-01' + (i * INTERVAL '1 month'));
+
+            -- Find a date within the month where the doctor works
+            LOOP
+                IF (EXTRACT(ISODOW FROM consultation_date)::SMALLINT % 7) = working_day THEN
+                    EXIT;
+                END IF;
+                consultation_date := consultation_date + INTERVAL '1 day';
             END LOOP;
+
+            -- Insert the consultation on the found working day
+            INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns)
+            VALUES (cardiologia_ssn, cardiologia_nif, clinic_name, consultation_date, hora1, LPAD(nextval('consulta_codigo_sns_seq')::TEXT, 12, '0'));
+
+            -- Insert the medication prescription
+            INSERT INTO receita (codigo_sns, medicamento, quantidade)
+            VALUES (LPAD(currval('consulta_codigo_sns_seq')::TEXT, 12, '0'), 'Chronic Medication', random_between(1, 3));
+        END LOOP;
        -- Loop through each patient
        FOR patient IN (SELECT ssn, nif FROM paciente) LOOP
            -- Initialize variable to check if consultation is scheduled
@@ -792,63 +810,63 @@ END $$;
            END LOOP;
        END LOOP;
 
-       -- Ensure each doctor has at least 2 consultations
-       FOR doctor IN (SELECT nif FROM medico) LOOP
-           FOR i IN 1..2 LOOP
-               -- Generate a random consultation date
-               consultation_date := DATE '2023-01-01' + (RANDOM() * 730)::INT; -- Random date in 2023-2024
-               dow := (EXTRACT(ISODOW FROM consultation_date) % 7); -- Day of the week (1=Monday, 7=Sunday)
+        -- Ensure each doctor has at least 2 consultations per day
+        FOR doctor IN (SELECT nif FROM medico) LOOP
+            FOR consultation_date IN (SELECT generate_series(DATE '2023-01-01', DATE '2024-12-31', INTERVAL '1 day')::DATE) LOOP
+                SELECT COUNT(*) INTO existing_consultation_count
+                FROM consulta
+                WHERE nif = doctor.nif AND data = consultation_date;
+                consultation_count := 0;
+                IF existing_consultation_count < 2 THEN
+                    WHILE consultation_count < 2 LOOP
+                        dow := (EXTRACT(ISODOW FROM consultation_date) % 7);
 
-               -- Generate a random time within the allowed hours
-               IF RANDOM() < 0.5 THEN
-                   consultation_time := MAKE_TIME(8 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 8:00 and 13:00
-               ELSE
-                   consultation_time := MAKE_TIME(14 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 14:00 and 19:00
-               END IF;
+                        -- Generate a random time within the allowed hours
+                        IF RANDOM() < 0.5 THEN
+                            consultation_time := MAKE_TIME(8 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 8:00 and 13:00
+                        ELSE
+                            consultation_time := MAKE_TIME(14 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 14:00 and 19:00
+                        END IF;
 
-               -- Select a random patient and clinic where the doctor works on the given day
-               FOR patient IN (
-                   SELECT ssn
-                   FROM paciente
-                   WHERE nif != doctor.nif
-                   ORDER BY RANDOM()
-                   LIMIT 1
-               ) LOOP
-                   FOR clinic IN (
-                       SELECT nome
-                       FROM trabalha
-                       WHERE nif = doctor.nif AND dia_da_semana = dow
-                       ORDER BY RANDOM()
-                       LIMIT 1
-                   ) LOOP
-                       -- Check if the doctor already has a consultation at the same time on the same day
-                       SELECT COUNT(*) INTO existing_consultation_count
-                       FROM consulta
-                       WHERE (nif = doctor.nif OR ssn = patient.ssn) AND data = consultation_date AND hora = consultation_time;
+                        -- Select a random patient and clinic where the doctor works on the given day
+                        FOR patient IN (
+                            SELECT ssn
+                            FROM paciente
+                            WHERE nif != doctor.nif
+                            ORDER BY RANDOM()
+                            LIMIT 1
+                        ) LOOP
+                            FOR clinic IN (
+                                SELECT nome
+                                FROM trabalha
+                                WHERE nif = doctor.nif AND dia_da_semana = dow
+                                ORDER BY RANDOM()
+                                LIMIT 1
+                            ) LOOP
+                                -- Check if the doctor already has a consultation at the same time on the same day
+                                SELECT COUNT(*) INTO existing_consultation_count
+                                FROM consulta
+                                WHERE (nif = doctor.nif OR ssn = patient.ssn) AND data = consultation_date AND hora = consultation_time;
 
-                       IF existing_consultation_count = 0 THEN
-                           -- Generate a unique SNS code using the sequence
-                           codigo_sns := LPAD(nextval('consulta_codigo_sns_seq')::TEXT, 12, '0');
+                                IF existing_consultation_count = 0 THEN
+                                    -- Generate a unique SNS code using the sequence
+                                    codigo_sns := LPAD(nextval('consulta_codigo_sns_seq')::TEXT, 12, '0');
 
-                           -- Insert the consultation
-                           INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns)
-                           VALUES (patient.ssn, doctor.nif, clinic.nome, consultation_date, consultation_time, codigo_sns);
+                                    -- Insert the consultation
+                                    INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns)
+                                    VALUES (patient.ssn, doctor.nif, clinic.nome, consultation_date, consultation_time, codigo_sns);
 
-                           -- Increment the consultation count
-                           consultation_count := consultation_count + 1;
+                                    -- Increment the consultation count
+                                    consultation_count := consultation_count + 1;
 
-                           -- Ensure each doctor has at least 2 consultations
-                           IF consultation_count % 2 = 0 THEN
-                               doctor_count := doctor_count + 1;
-                           END IF;
-
-                           EXIT; -- Exit the loop after inserting one consultation for the doctor
-                       END IF;
-                   END LOOP;
-                   EXIT; -- Exit the loop after inserting one consultation for the patient
-               END LOOP;
-           END LOOP;
-       END LOOP;
+                                    EXIT; -- Exit the loop after inserting one consultation for the clinic
+                                END IF;
+                            END LOOP;
+                        END LOOP;
+                    END LOOP;
+                END IF;
+            END LOOP;
+        END LOOP;
 
        -- Loop through each clinic
        FOR clinic IN (SELECT nome FROM clinica) LOOP
