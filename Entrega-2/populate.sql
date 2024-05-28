@@ -724,33 +724,37 @@ END $$;
        clinic_count := 0;
         -- First, ensure at least one patient has a medication prescribed for more than 12 consecutive months
         SELECT ssn INTO cardiologia_ssn FROM paciente ORDER BY RANDOM() LIMIT 1;
-        -- Select a random cardiologist
-        SELECT nif INTO cardiologia_nif FROM medico WHERE especialidade = 'Cardiologia' ORDER BY RANDOM() LIMIT 1;
 
-        -- Select a random clinic associated with the cardiologist
-        SELECT nome INTO clinic_name FROM trabalha WHERE nif = cardiologia_nif ORDER BY RANDOM() LIMIT 1;
+            -- Loop for 12 consecutive months
+            FOR i IN 0..16 LOOP
+            -- Seleciona um cardiologista aleatório
+            SELECT nif INTO cardiologia_nif FROM medico WHERE especialidade = 'Cardiologia' ORDER BY RANDOM() LIMIT 1;
 
-        -- Find a day of the week that the cardiologist works
-        SELECT dia_da_semana INTO working_day FROM trabalha WHERE nif = cardiologia_nif ORDER BY RANDOM() LIMIT 1;
+            -- Encontra um dia da semana que o cardiologista trabalha
+            SELECT dia_da_semana INTO working_day FROM trabalha WHERE nif = cardiologia_nif ORDER BY RANDOM() LIMIT 1;
+            
+            SELECT nome INTO clinic_name FROM trabalha WHERE nif = cardiologia_nif AND dia_da_semana = working_day ORDER BY RANDOM() LIMIT 1;
 
-        -- Loop for 12 consecutive months
-        FOR i IN 0..11 LOOP
-            -- Initialize the date to the first day of the current month in the loop
-            consultation_date := DATE_TRUNC('month', DATE '2023-01-01' + (i * INTERVAL '1 month'));
+            -- Inicializa a data para o primeiro dia do mês corrente no loop
+            consultation_date := DATE '2023-01-01' + (i * INTERVAL '1 month');
 
-            -- Find a date within the month where the doctor works
+            -- Tenta todos os dias do mês até encontrar um dia de trabalho
             LOOP
                 IF (EXTRACT(ISODOW FROM consultation_date)::SMALLINT % 7) = working_day THEN
                     EXIT;
                 END IF;
                 consultation_date := consultation_date + INTERVAL '1 day';
+                -- Verifica se não ultrapassou o mês
+                IF consultation_date >= (DATE '2023-01-01' + ((i + 1) * INTERVAL '1 month')) THEN
+                    RAISE EXCEPTION 'Não foi encontrado um dia de trabalho válido para o cardiologista no mês %', i + 1;
+                END IF;
             END LOOP;
 
-            -- Insert the consultation on the found working day
+            -- Insere a consulta no dia de trabalho encontrado
             INSERT INTO consulta (ssn, nif, nome, data, hora, codigo_sns)
             VALUES (cardiologia_ssn, cardiologia_nif, clinic_name, consultation_date, hora1, LPAD(nextval('consulta_codigo_sns_seq')::TEXT, 12, '0'));
 
-            -- Insert the medication prescription
+            -- Insere a prescrição de medicamento
             INSERT INTO receita (codigo_sns, medicamento, quantidade)
             VALUES (LPAD(currval('consulta_codigo_sns_seq')::TEXT, 12, '0'), 'Chronic Medication', random_between(1, 3));
         END LOOP;
