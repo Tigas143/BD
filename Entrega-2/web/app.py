@@ -3,6 +3,7 @@
 # Distributed under the terms of the Modified BSD License.
 import os
 from logging.config import dictConfig
+from datetime import datetime
 
 from flask import Flask, jsonify, request
 from psycopg.rows import namedtuple_row
@@ -161,6 +162,45 @@ def medicos_by_especialidade_by_clinica(nome_clinica, especialidade):
                 medicos_list.append([medico_nome, consultation_times])
     
     return jsonify(medicos_list), 200
+
+
+@app.route("/a/<clinica>/registar/", methods=("POST",))
+def registar_consulta(clinica):
+    data = request.json
+    medico_nif = data.get('nif')
+    paciente_ssn = data.get('ssn')
+    consulta_date = data.get('date')
+    consulta_time = data.get('time')
+
+    # Validate input
+    if not medico_nif or not paciente_ssn or not consulta_date or not consulta_time:
+        return jsonify({"error": "Missing required data"}), 400
+
+    try:
+        consulta_datetime = datetime.strptime(f"{consulta_date} {consulta_time}", "%Y-%m-%d %H:%M:%S")
+        if consulta_datetime <= datetime.now():
+            return jsonify({"error": "The consultation date and time must be in the future"}), 400
+    except ValueError:
+        return jsonify({"error": "Invalid date or time format"}), 400
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO consulta (ssn, nif, nome, data, hora)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (paciente_ssn, medico_nif, clinica, consulta_date, consulta_time),
+                )
+                consulta_id = cur.fetchone().id
+                return jsonify({"message": "Consultation registered successfully", "consulta_id": consulta_id}), 201
+            except Exception as e:
+                log.error(f"Error registering consultation: {e}")
+                return jsonify({"error": "Could not register consultation", "reason": str(e)}), 500
+
+
 
 
 
