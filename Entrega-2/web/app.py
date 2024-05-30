@@ -11,7 +11,7 @@ from psycopg_pool import ConnectionPool
 
 # Use the DATABASE_URL environment variable if it exists, otherwise use the default.
 # Use the format postgres://username:password@hostname/database_name to connect to the database.
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://saude:saude@postgres/saude")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://postgres:postgres@postgres/saude")
 
 pool = ConnectionPool(
     conninfo=DATABASE_URL,
@@ -201,7 +201,45 @@ def registar_consulta(clinica):
                 return jsonify({"error": "Could not register consultation", "reason": str(e)}), 500
 
 
+@app.route("/a/<clinica>/cancelar/", methods=("POST",))
+def cancelar_consulta(clinica):
+    data = request.json
+    medico_nif = data.get('nif')
+    paciente_ssn = data.get('ssn')
+    consulta_date = data.get('date')
+    consulta_time = data.get('time')
 
+    # Validate input
+    if not medico_nif or not paciente_ssn or not consulta_date or not consulta_time:
+        return jsonify({"error": "Missing required data"}), 400
+
+    try:
+        consulta_datetime = datetime.strptime(f"{consulta_date} {consulta_time}", "%Y-%m-%d %H:%M:%S")
+        if consulta_datetime <= datetime.now():
+            return jsonify({"error": "The consultation date and time must be in the future"}), 400
+    except ValueError:
+        return jsonify({"error": "Invalid date or time format"}), 400
+
+    with pool.connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                # Attempt to delete the consultation
+                cur.execute(
+                    """
+                    DELETE FROM consulta
+                    WHERE ssn = %s AND nif = %s AND nome = %s AND data = %s AND hora = %s
+                    RETURNING id
+                    """,
+                    (paciente_ssn, medico_nif, clinica, consulta_date, consulta_time)
+                )
+                deleted_consulta = cur.fetchone()
+                if deleted_consulta:
+                    return jsonify({"message": "Consultation cancelled successfully", "consulta_id": deleted_consulta.id}), 200
+                else:
+                    return jsonify({"error": "Consultation not found"}), 404
+            except Exception as e:
+                log.error(f"Error cancelling consultation: {e}")
+                return jsonify({"error": "Could not cancel consultation", "reason": str(e)}), 500
 
 
 
