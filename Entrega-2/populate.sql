@@ -42,26 +42,26 @@ INSERT INTO enfermeiro (nif, nome, telefone, morada, nome_clinica) VALUES
 
 -- Insert general practitioners (Clínica Geral)
 INSERT INTO medico (nif, nome, telefone, morada, especialidade) VALUES
-('111111111', 'Dr. Smith', '912345678', 'Rua E1, 1234-031 Lisboa', 'Clínica Geral'),
-('111111112', 'Dr. Johnson', '912345679', 'Rua E2, 1234-032 Lisboa', 'Clínica Geral'),
-('111111113', 'Dr. Williams', '912345680', 'Rua E3, 1234-033 Lisboa', 'Clínica Geral'),
-('111111114', 'Dr. Brown', '912345681', 'Rua E4, 1234-034 Lisboa', 'Clínica Geral'),
-('111111115', 'Dr. Jones', '912345682', 'Rua E5, 1234-035 Lisboa', 'Clínica Geral'),
-('111111116', 'Dr. Miller', '912345683', 'Rua E6, 1234-036 Lisboa', 'Clínica Geral'),
-('111111117', 'Dr. Davis', '912345684', 'Rua E7, 1234-037 Lisboa', 'Clínica Geral'),
-('111111118', 'Dr. Garcia', '912345685', 'Rua E8, 1234-038 Lisboa', 'Clínica Geral'),
-('111111119', 'Dr. Martinez', '912345686', 'Rua E9, 1234-039 Lisboa', 'Clínica Geral'),
-('111111120', 'Dr. Rodriguez', '912345687', 'Rua E10, 1234-040 Lisboa', 'Clínica Geral'),
-('111111121', 'Dr. Hernandez', '912345688', 'Rua E11, 1234-041 Lisboa', 'Clínica Geral'),
-('111111122', 'Dr. Lopez', '912345689', 'Rua E12, 1234-042 Lisboa', 'Clínica Geral'),
-('111111123', 'Dr. Gonzalez', '912345690', 'Rua E13, 1234-043 Lisboa', 'Clínica Geral'),
-('111111124', 'Dr. Wilson', '912345691', 'Rua E14, 1234-044 Lisboa', 'Clínica Geral'),
-('111111125', 'Dr. Anderson', '912345692', 'Rua E15, 1234-045 Lisboa', 'Clínica Geral'),
-('111111126', 'Dr. Thomas', '912345693', 'Rua E16, 1234-046 Lisboa', 'Clínica Geral'),
-('111111127', 'Dr. Taylor', '912345694', 'Rua E17, 1234-047 Lisboa', 'Clínica Geral'),
-('111111128', 'Dr. Moore', '912345695', 'Rua E18, 1234-048 Lisboa', 'Clínica Geral'),
-('111111129', 'Dr. Jackson', '912345696', 'Rua E19, 1234-049 Lisboa', 'Clínica Geral'),
-('111111130', 'Dr. Martin', '912345697', 'Rua E20, 1234-050 Lisboa', 'Clínica Geral');
+('111111111', 'Dr. Smith', '912345678', 'Rua E1, 1234-031 Lisboa', 'Clinica Geral'),
+('111111112', 'Dr. Johnson', '912345679', 'Rua E2, 1234-032 Lisboa', 'Clinica Geral'),
+('111111113', 'Dr. Williams', '912345680', 'Rua E3, 1234-033 Lisboa', 'Clinica Geral'),
+('111111114', 'Dr. Brown', '912345681', 'Rua E4, 1234-034 Lisboa', 'Clinica Geral'),
+('111111115', 'Dr. Jones', '912345682', 'Rua E5, 1234-035 Lisboa', 'Clinica Geral'),
+('111111116', 'Dr. Miller', '912345683', 'Rua E6, 1234-036 Lisboa', 'Clinica Geral'),
+('111111117', 'Dr. Davis', '912345684', 'Rua E7, 1234-037 Lisboa', 'Clinica Geral'),
+('111111118', 'Dr. Garcia', '912345685', 'Rua E8, 1234-038 Lisboa', 'Clinica Geral'),
+('111111119', 'Dr. Martinez', '912345686', 'Rua E9, 1234-039 Lisboa', 'Clinica Geral'),
+('111111120', 'Dr. Rodriguez', '912345687', 'Rua E10, 1234-040 Lisboa', 'Clinica Geral'),
+('111111121', 'Dr. Hernandez', '912345688', 'Rua E11, 1234-041 Lisboa', 'Clinica Geral'),
+('111111122', 'Dr. Lopez', '912345689', 'Rua E12, 1234-042 Lisboa', 'Clinica Geral'),
+('111111123', 'Dr. Gonzalez', '912345690', 'Rua E13, 1234-043 Lisboa', 'Clinica Geral'),
+('111111124', 'Dr. Wilson', '912345691', 'Rua E14, 1234-044 Lisboa', 'Clinica Geral'),
+('111111125', 'Dr. Anderson', '912345692', 'Rua E15, 1234-045 Lisboa', 'Clinica Geral'),
+('111111126', 'Dr. Thomas', '912345693', 'Rua E16, 1234-046 Lisboa', 'Clinica Geral'),
+('111111127', 'Dr. Taylor', '912345694', 'Rua E17, 1234-047 Lisboa', 'Clinica Geral'),
+('111111128', 'Dr. Moore', '912345695', 'Rua E18, 1234-048 Lisboa', 'Clinica Geral'),
+('111111129', 'Dr. Jackson', '912345696', 'Rua E19, 1234-049 Lisboa', 'Clinica Geral'),
+('111111130', 'Dr. Martin', '912345697', 'Rua E20, 1234-050 Lisboa', 'Clinica Geral');
 
 -- Insert specialists (e.g., Ortopedia, Cardiologia, Dermatologia, Neurologia, Pediatria)
 INSERT INTO medico (nif, nome, telefone, morada, especialidade) VALUES
@@ -726,7 +726,7 @@ END $$;
         SELECT ssn INTO cardiologia_ssn FROM paciente ORDER BY RANDOM() LIMIT 1;
 
             -- Loop for 12 consecutive months
-            FOR i IN 0..16 LOOP
+            FOR i IN 0..18 LOOP
             -- Seleciona um cardiologista aleatório
             SELECT nif INTO cardiologia_nif FROM medico WHERE especialidade = 'Cardiologia' ORDER BY RANDOM() LIMIT 1;
 
