@@ -771,9 +771,9 @@ END $$;
 
                -- Generate a random time within the allowed hours
                IF RANDOM() < 0.5 THEN
-                   consultation_time := MAKE_TIME(8 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 8:00 and 13:00
+                   consultation_time := MAKE_TIME(8 + (RANDOM() * 4)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 8:00 and 13:00
                ELSE
-                   consultation_time := MAKE_TIME(14 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 14:00 and 19:00
+                   consultation_time := MAKE_TIME(14 + (RANDOM() * 4)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 14:00 and 19:00
                END IF;
 
                -- Select a random doctor who is not the patient and works in a clinic on the given day
@@ -827,9 +827,9 @@ END $$;
 
                         -- Generate a random time within the allowed hours
                         IF RANDOM() < 0.5 THEN
-                            consultation_time := MAKE_TIME(8 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 8:00 and 13:00
+                            consultation_time := MAKE_TIME(8 + (RANDOM() * 4)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 8:00 and 13:00
                         ELSE
-                            consultation_time := MAKE_TIME(14 + (RANDOM() * 5)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 14:00 and 19:00
+                            consultation_time := MAKE_TIME(14 + (RANDOM() * 4)::INT, (RANDOM() < 0.5)::INT * 30, 0); -- Between 14:00 and 19:00
                         END IF;
 
                         -- Select a random patient and clinic where the doctor works on the given day
