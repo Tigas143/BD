@@ -891,7 +891,7 @@ END $$;
                WHILE clinic_count < 20 LOOP
 
                    -- Loop through each time slot in the day (8:00-13:00 and 14:00-19:00 in 30 minute intervals)
-                   FOR hour IN 8..11 LOOP
+                   FOR hour IN 8..12 LOOP
                        FOR minute IN 0..30 BY 30 LOOP
                            consultation_time := MAKE_TIME(hour, minute, 0);
 
